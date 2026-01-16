@@ -44,7 +44,7 @@ dependencies:
   cached_network_image: ^3.4.1
 
   # Push notifications
-  pushy_flutter: ^2.0.10
+  pushy_flutter: ^2.0.43
   
   # URL launcher (للمكالمات الصوتية)
   url_launcher: ^6.3.0
