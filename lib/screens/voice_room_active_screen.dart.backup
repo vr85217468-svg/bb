@@ -1,0 +1,989 @@
+import 'package:flutter/material.dart';
+import 'package:test7/services/agora_voice_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:permission_handler/permission_handler.dart';
+import '../theme/app_theme.dart';
+import 'dart:async';
+
+class VoiceRoomActiveScreen extends StatefulWidget {
+  final Map<String, dynamic> room;
+  final Map<String, dynamic> user;
+  const VoiceRoomActiveScreen({
+    super.key,
+    required this.room,
+    required this.user,
+  });
+
+  @override
+  State<VoiceRoomActiveScreen> createState() => _VoiceRoomActiveScreenState();
+}
+
+class _VoiceRoomActiveScreenState extends State<VoiceRoomActiveScreen>
+    with
+        SingleTickerProviderStateMixin,
+        WidgetsBindingObserver,
+        AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true; // حفظ state عند العودة من Jitsi
+
+  final _client = Supabase.instance.client;
+  RealtimeChannel? _participantsSubscription;
+  RealtimeChannel? _roomDeletionSubscription;
+  bool _isLeaving = false;
+  bool _isJoining = false;
+  Timer? _heartbeatTimer;
+  String? _validationError;
+  List<Map<String, dynamic>> _participants = [];
+  bool _isDisposed = false;
+  int _heartbeatFailureCount = 0;
+
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  Color get _roomColor {
+    final colorName = widget.room['room_color'];
+    if (colorName == null) return AppTheme.accentPurple;
+    switch (colorName.toString()) {
+      case 'purple':
+        return AppTheme.accentPurple;
+      case 'pink':
+        return AppTheme.accentPink;
+      case 'cyan':
+        return AppTheme.accentCyan;
+      case 'green':
+        return AppTheme.accentGreen;
+      case 'gold':
+        return AppTheme.accentGold;
+      default:
+        return AppTheme.accentPurple;
+    }
+  }
+
+  IconData get _roomIcon {
+    final iconName = widget.room['room_icon'];
+    if (iconName == null) return Icons.headset_mic_rounded;
+    switch (iconName.toString()) {
+      case 'music':
+        return Icons.music_note_rounded;
+      case 'game':
+        return Icons.sports_esports_rounded;
+      case 'chat':
+        return Icons.chat_rounded;
+      case 'study':
+        return Icons.school_rounded;
+      case 'podcast':
+        return Icons.podcasts_rounded;
+      default:
+        return Icons.headset_mic_rounded;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initAnimation();
+    if (_validateRoomData()) {
+      // لا نتصل تلقائياً - ننتظر المستخدم يضغط زر "انضم"
+      // _checkStatusAndJoin(); ← تم تعطيله
+      _subscribeToParticipants();
+      _subscribeToRoomDeletion();
+      // heartbeat سيبدأ بعد الانضمام الفعلي
+      _loadParticipants();
+    }
+  }
+
+  void _initAnimation() {
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.2).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.detached ||
+        (state == AppLifecycleState.paused && !GroupCallService.isInCall)) {
+      // App يغلق أو يذهب للخلفية وهو ليس في مكالمة - تنظيف سريع
+      debugPrint(
+        '🔄 App lifecycle: $state (InCall: ${GroupCallService.isInCall}) - cleaning up',
+      );
+      _removeParticipantFromDB().catchError((e) {
+        debugPrint('⚠️ Lifecycle cleanup error: $e');
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _isDisposed = true;
+    _heartbeatTimer?.cancel();
+    _pulseController.dispose();
+    if (_participantsSubscription != null) {
+      _client.removeChannel(_participantsSubscription!);
+      _participantsSubscription = null;
+    }
+    if (_roomDeletionSubscription != null) {
+      GroupCallService.unsubscribe(_roomDeletionSubscription!);
+      _roomDeletionSubscription = null;
+    }
+    // لا نستطيع استدعاء async في dispose - سيحدث في _leaveRoom
+    super.dispose();
+  }
+
+  bool _validateRoomData() {
+    // التحقق من وجود معرف مستخدم
+    final userId = widget.user['id'];
+    if (userId == null || userId.toString().isEmpty) {
+      setState(() {
+        _validationError = 'خطأ في معرف المستخدم';
+        _isJoining = false;
+      });
+      debugPrint('❌ Invalid user ID: $userId');
+      return false;
+    }
+
+    // الضيوف السريعون لا يمكنهم الانضمام (يحتاجون UUID حقيقي)
+    if (userId.toString() == 'guest') {
+      setState(() {
+        _validationError = 'يجب إنشاء حساب كامل للانضمام للغرف الصوتية';
+        _isJoining = false;
+      });
+      debugPrint('❌ Guest user cannot join: $userId');
+      return false;
+    }
+
+    debugPrint('✅ User ID: $userId');
+
+    if (widget.room['room_name'] == null ||
+        widget.room['room_name'].toString().isEmpty) {
+      setState(() {
+        _validationError = 'بيانات الغرفة غير صحيحة';
+        _isJoining = false;
+      });
+      return false;
+    }
+
+    return true;
+  }
+
+  void _startHeartbeat() {
+    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (
+      timer,
+    ) async {
+      // إذا لم يعد المستخدم في مكالمة Jitsi، نتوقف عن إرسال Heartbeat
+      if (!GroupCallService.isInCall) {
+        debugPrint('⏹️ Stopping heartbeat because call ended');
+        timer.cancel();
+        return;
+      }
+
+      if (!_isLeaving && mounted) {
+        try {
+          await _client.from('voice_room_participants').upsert({
+            'room_name': widget.room['room_name'],
+            'user_id': widget.user['id'],
+            'last_seen': DateTime.now().toIso8601String(),
+          }, onConflict: 'room_name,user_id');
+
+          // نجح - reset counter
+          _heartbeatFailureCount = 0;
+        } catch (e) {
+          _heartbeatFailureCount++;
+          debugPrint('❌ Heartbeat error ($_heartbeatFailureCount/3): $e');
+
+          // إذا فشل 3 مرات متتالية (90 ثانية)
+          if (_heartbeatFailureCount >= 3) {
+            debugPrint('⚠️ Heartbeat failed 3 times - leaving room');
+            timer.cancel();
+            await _leaveRoom();
+          }
+        }
+      }
+    });
+  }
+
+  Future<void> _loadParticipants() async {
+    try {
+      final response = await _client
+          .from('voice_room_participants')
+          .select('*, users:user_id(id, name, username, profile_image)')
+          .eq('room_name', widget.room['room_name'])
+          .timeout(const Duration(seconds: 10));
+
+      if (mounted) {
+        setState(() {
+          _participants = List<Map<String, dynamic>>.from(response);
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading participants: $e');
+    }
+  }
+
+  void _subscribeToParticipants() {
+    try {
+      _participantsSubscription = _client
+          .channel('room_${widget.room['room_name']}_participants')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.all,
+            schema: 'public',
+            table: 'voice_room_participants',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'room_name',
+              value: widget.room['room_name'],
+            ),
+            callback: (payload) {
+              _loadParticipants();
+            },
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('❌ Error subscribing to participants: $e');
+    }
+  }
+
+  Future<void> _removeParticipantFromDB() async {
+    try {
+      await _client
+          .from('voice_room_participants')
+          .delete()
+          .eq('room_name', widget.room['room_name'])
+          .eq('user_id', widget.user['id'])
+          .timeout(const Duration(seconds: 10)); // حد زمني للحذف
+    } catch (e) {
+      debugPrint('❌ Error removing participant from DB: $e');
+    }
+  }
+
+  Future<void> _checkStatusAndJoin() async {
+    debugPrint('🔵 START _checkStatusAndJoin');
+    if (_isDisposed) {
+      debugPrint('❌ Disposed - aborting');
+      return;
+    }
+
+    try {
+      debugPrint('🔵 Requesting mic permission...');
+      final micStatus = await Permission.microphone.request().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('⏱️ Mic permission timeout');
+          return PermissionStatus.denied;
+        },
+      );
+      debugPrint('🔵 Mic status: $micStatus');
+      if (!_isJoining || _isDisposed) {
+        return; // فحص الإلغاء
+      }
+
+      debugPrint('🔵 Requesting camera permission...');
+      final cameraStatus = await Permission.camera.request().timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          debugPrint('⏱️ Camera permission timeout');
+          return PermissionStatus.denied;
+        },
+      );
+      debugPrint('🔵 Camera status: $cameraStatus');
+      if (!_isJoining || _isDisposed) {
+        return; // فحص الإلغاء
+      }
+
+      if (micStatus != PermissionStatus.granted) {
+        debugPrint('❌ Mic not granted');
+        if (mounted) {
+          _showPermissionError('الميكروفون', micStatus);
+          Navigator.pop(context);
+        }
+        return;
+      }
+
+      if (cameraStatus != PermissionStatus.granted) {
+        debugPrint('❌ Camera not granted');
+        if (mounted) {
+          _showPermissionError('الكاميرا', cameraStatus);
+          Navigator.pop(context);
+        }
+        return;
+      }
+
+      debugPrint('✅ Permissions granted - calling joinCall...');
+
+      // محاولة الانضمام مع timeout
+      debugPrint('🚀 Calling GroupCallService.joinCall...');
+      if (!_isJoining || _isDisposed) {
+        return; // فحص الإلغاء قبل الاتصال بـ Jitsi
+      }
+
+      await GroupCallService.joinCall(
+        userName: widget.user['name'] ?? 'مستخدم',
+        roomName: widget.room['room_name'],
+        userId: widget.user['id'],
+      ).timeout(
+        const Duration(seconds: 20),
+        onTimeout: () async {
+          debugPrint('⏱️ Join overall timeout - cleaning up...');
+          await _removeParticipantFromDB().catchError((_) {});
+          throw TimeoutException('تعذر الاتصال بالخدمة. يرجى المحاولة لاحقاً');
+        },
+      );
+
+      debugPrint('✅ joinCall completed successfully!');
+      if (!_isJoining || _isDisposed) {
+        // إذا ألغى المستخدم أثناء محاولة الاتصال، نغلق Jitsi فوراً
+        debugPrint('🚫 User cancelled during joinCall - hanging up');
+        await GroupCallService.hangUp().catchError(
+          (e) => debugPrint('Error after cancel: $e'),
+        );
+        return;
+      }
+
+      // بدء heartbeat بعد الانضمام الناجح
+      if (!_isDisposed) {
+        debugPrint('🔵 Starting heartbeat...');
+        _startHeartbeat();
+      }
+
+      if (mounted && !_isDisposed) {
+        debugPrint('🔵 Setting _isJoining = false');
+        setState(() => _isJoining = false);
+      }
+      debugPrint('✅ END _checkStatusAndJoin - SUCCESS');
+    } on TimeoutException catch (e) {
+      debugPrint('❌ TimeoutException: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('انتهت مهلة الانتظار. تحقق من اتصال الإنترنت'),
+            backgroundColor: Colors.orange.shade700,
+          ),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error joining call: $e');
+      debugPrint('Stack trace: $stackTrace');
+      if (mounted) {
+        String errorMessage = 'حدث خطأ: ${e.toString()}';
+
+        // رسالة خاصة للويب
+        if (e.toString().contains('غير متاحة على الويب')) {
+          errorMessage =
+              '⚠️ الغرف الصوتية غير متاحة على الويب\nيرجى استخدام تطبيق Android';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        Navigator.pop(context);
+      }
+    }
+  }
+
+  void _showPermissionError(String permission, PermissionStatus status) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          status == PermissionStatus.permanentlyDenied
+              ? 'يرجى تفعيل إذن $permission من الإعدادات'
+              : 'يجب السماح بالوصول لـ$permission',
+        ),
+        backgroundColor: Colors.orange.shade700,
+        action: status == PermissionStatus.permanentlyDenied
+            ? SnackBarAction(
+                label: 'الإعدادات',
+                textColor: Colors.white,
+                onPressed: () => openAppSettings(),
+              )
+            : null,
+      ),
+    );
+  }
+
+  void _subscribeToRoomDeletion() {
+    try {
+      _roomDeletionSubscription = _client
+          .channel('room_${widget.room['room_name']}_deletion')
+          .onPostgresChanges(
+            event: PostgresChangeEvent.delete,
+            schema: 'public',
+            table: 'voice_rooms',
+            filter: PostgresChangeFilter(
+              type: PostgresChangeFilterType.eq,
+              column: 'room_name',
+              value: widget.room['room_name'],
+            ),
+            callback: (payload) => _handleRoomDeleted(),
+          )
+          .subscribe();
+    } catch (e) {
+      debugPrint('❌ Error subscribing to deletion: $e');
+    }
+  }
+
+  void _handleRoomDeleted() {
+    if (!mounted || _isLeaving) return;
+
+    // إنهاء المكالمة فوراً في Jitsi
+    GroupCallService.hangUp().catchError(
+      (e) => debugPrint('Error hanging up: $e'),
+    );
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withAlpha(40),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.warning_rounded, color: Colors.orange),
+            ),
+            const SizedBox(width: 12),
+            const Text('تم حذف الغرفة', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: const Text(
+          'تم حذف هذه الغرفة. سيتم إنهاء المكالمة.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _leaveRoom();
+            },
+            child: const Text('حسناً', style: TextStyle(color: Colors.orange)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _leaveRoom() async {
+    if (_isLeaving) return;
+
+    // ⚠️ CRITICAL: تعيين _isLeaving قبل cancel لمنع race condition
+    // إذا كان heartbeat callback يعمل حالياً، سيفحص _isLeaving ويتوقف
+    _isLeaving = true;
+
+    // الآن آمن لإلغاء المؤقت
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = null;
+
+    // trigger UI rebuild
+    if (mounted) setState(() {});
+
+    try {
+      await GroupCallService.hangUp();
+
+      // محاولة حذف من DB مع retry
+      for (int attempt = 0; attempt < 3; attempt++) {
+        try {
+          await _removeParticipantFromDB();
+          debugPrint('✅ Participant removed (attempt ${attempt + 1})');
+          break; // نجح - اخرج
+        } catch (e) {
+          if (attempt == 2) {
+            // آخر محاولة فشلت - cleanup service سينظف
+            debugPrint('⚠️ Failed to remove after 3 attempts: $e');
+          } else {
+            // انتظر قليلاً قبل إعادة المحاولة
+            await Future.delayed(Duration(seconds: 1));
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Error leaving: $e');
+    } finally {
+      if (mounted) Navigator.pop(context);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context); // مطلوب لـ AutomaticKeepAliveClientMixin
+
+    if (_validationError != null) {
+      return _buildErrorScreen();
+    }
+
+    if (_isJoining) {
+      return _buildJoiningScreen();
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _leaveRoom();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFF0A0A1A),
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                _roomColor.withAlpha(20),
+                const Color(0xFF0A0A1A),
+                const Color(0xFF0A0A1A),
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Column(
+              children: [
+                _buildHeader(),
+                Expanded(child: _buildContent()),
+                _buildFooter(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Row(
+        children: [
+          // أيقونة الغرفة
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [_roomColor.withAlpha(100), _roomColor.withAlpha(50)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: _roomColor.withAlpha(80),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Icon(_roomIcon, color: Colors.white, size: 28),
+          ),
+          const SizedBox(width: 16),
+          // معلومات الغرفة
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.room['title'] ?? 'غرفة محادثة',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    AnimatedBuilder(
+                      animation: _pulseAnimation,
+                      builder: (context, child) => Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF22C55E),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF22C55E).withAlpha(
+                                (100 * _pulseAnimation.value).toInt(),
+                              ),
+                              blurRadius: 8 * _pulseAnimation.value,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${_participants.length} مشارك',
+                      style: TextStyle(
+                        color: Colors.white.withAlpha(180),
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          // زر المغادرة
+          GestureDetector(
+            onTap: _leaveRoom,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withAlpha(40),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.red.withAlpha(100)),
+              ),
+              child: const Icon(
+                Icons.call_end_rounded,
+                color: Colors.red,
+                size: 24,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        children: [
+          const SizedBox(height: 20),
+          // رسالة Jitsi
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.white.withAlpha(10), Colors.white.withAlpha(5)],
+              ),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: _roomColor.withAlpha(60)),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.video_call_rounded, size: 80, color: _roomColor),
+                const SizedBox(height: 20),
+                const Text(
+                  'جاهز للانضمام',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'اضغط على زر "انضم الآن" لبدء المكالمة',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withAlpha(150),
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // زر الانضمام
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    if (_isJoining) return;
+                    if (!mounted) return;
+                    setState(() => _isJoining = true);
+                    try {
+                      await _checkStatusAndJoin();
+                    } finally {
+                      if (mounted) setState(() => _isJoining = false);
+                    }
+                  },
+                  icon: const Icon(Icons.call, color: Colors.white),
+                  label: const Text(
+                    'انضم الآن',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _roomColor,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 40,
+                      vertical: 16,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 8,
+                    shadowColor: _roomColor.withAlpha(100),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 30),
+          // المشاركون
+          if (_participants.isNotEmpty) ...[
+            Row(
+              children: [
+                Icon(Icons.people_rounded, color: _roomColor, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'المشاركون (${_participants.length})',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ..._participants.map((participant) {
+              final user = participant['users'] as Map<String, dynamic>?;
+              final name = user?['name'] ?? 'مستخدم';
+              final profileImage = user?['profile_image'];
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(8),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withAlpha(20)),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: _roomColor.withAlpha(60),
+                      backgroundImage: profileImage != null
+                          ? NetworkImage(profileImage)
+                          : null,
+                      child: profileImage == null
+                          ? Text(
+                              name.isNotEmpty ? name[0].toUpperCase() : '?',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      Icons.check_circle_rounded,
+                      color: _roomColor,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooter() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Colors.transparent, Colors.black.withAlpha(150)],
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.info_outline_rounded, color: _roomColor, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'استخدم أدوات Jitsi للتحكم الكامل',
+              style: TextStyle(
+                color: Colors.white.withAlpha(180),
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildJoiningScreen() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0A1A),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            AnimatedBuilder(
+              animation: _pulseAnimation,
+              builder: (context, child) => Transform.scale(
+                scale: _pulseAnimation.value * 0.9 + 0.1,
+                child: Container(
+                  padding: const EdgeInsets.all(40),
+                  decoration: BoxDecoration(
+                    gradient: RadialGradient(
+                      colors: [
+                        _roomColor.withAlpha(60),
+                        _roomColor.withAlpha(20),
+                        Colors.transparent,
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(_roomIcon, size: 60, color: _roomColor),
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+            const Text(
+              'جاري الانضمام...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              widget.room['title'] ?? 'غرفة محادثة',
+              style: TextStyle(
+                color: Colors.white.withAlpha(150),
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 40),
+            SizedBox(
+              width: 40,
+              height: 40,
+              child: CircularProgressIndicator(
+                color: _roomColor,
+                strokeWidth: 3,
+              ),
+            ),
+            const SizedBox(height: 60),
+            // زر إلغاء الانضمام
+            TextButton.icon(
+              onPressed: () {
+                if (!mounted) return;
+                setState(() => _isJoining = false);
+                debugPrint('🚫 Joining cancelled by user');
+              },
+              icon: const Icon(Icons.close_rounded, color: Colors.white70),
+              label: const Text(
+                'إلغاء',
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+                backgroundColor: Colors.white.withAlpha(20),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen() {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0A1A),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.red.withAlpha(30),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.error_outline_rounded,
+                  color: Colors.red,
+                  size: 60,
+                ),
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'حدث خطأ',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                _validationError!,
+                style: TextStyle(
+                  color: Colors.white.withAlpha(150),
+                  fontSize: 16,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white.withAlpha(20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 14,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                child: const Text(
+                  'رجوع',
+                  style: TextStyle(color: Colors.white, fontSize: 16),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

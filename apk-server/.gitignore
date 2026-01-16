@@ -1,0 +1,16 @@
+# Ignore node modules
+node_modules/
+
+# Ignore APK file (optional - remove this line if you want to include APK in git)
+public/*.apk
+
+# Ignore logs
+*.log
+npm-debug.log*
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore environment variables
+.env

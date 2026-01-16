@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔥 لوحة القيادة | Driving Controller</title>
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+    <div class="horror-bg"></div>
+    <div class="smoke-effect"></div>
+    <div class="particles" id="particles"></div>
+
+    <div class="main-container">
+        <!-- صفحة تسجيل الدخول -->
+        <div class="card" id="loginCard">
+            <div class="header">
+                <div class="logo">💀</div>
+                <h1>لوحة القيادة</h1>
+                <p>🔥 منطقة محظورة - للمدير فقط 🔥</p>
+            </div>
+
+            <div id="loginAlert" class="alert">
+                <span id="loginAlertIcon">✕</span>
+                <span id="loginAlertMsg"></span>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>👤 User</label>
+                    <div class="input-wrapper">
+                        <input type="text" id="loginUser" placeholder="أدخل اسم المستخدم" required autocomplete="off">
+                        <span class="input-icon">👤</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>🔑 Pass</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="loginPass" placeholder="أدخل كلمة المرور" required>
+                        <span class="input-icon">🔑</span>
+                        <button type="button" class="toggle-pass"
+                            onclick="togglePassword('loginPass', this)">👁️</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="loginBtn">
+                    <span>🔓</span>
+                    <span>الدخول للمنطقة المحظورة</span>
+                </button>
+            </form>
+
+            <div class="footer">
+                ⚠️ تحذير: محاولات الدخول غير المصرح بها مراقبة ⚠️
+            </div>
+        </div>
+
+        <!-- صفحة لوحة التحكم -->
+        <div class="card hidden" id="adminCard">
+            <div class="header">
+                <div class="logo">🔥</div>
+                <h1>Driving Controller</h1>
+                <p>⚡ مركز التحكم الرئيسي ⚡</p>
+            </div>
+
+            <div class="user-badge">
+                <div class="user-info">
+                    <div class="user-avatar">👑</div>
+                    <div>
+                        <div class="user-name" id="userName">Admin</div>
+                        <div class="user-role">المدير الخاص ابو محمد</div>
+                    </div>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()">
+                    <span>🚪</span>
+                    <span>Exit</span>
+                </button>
+            </div>
+
+            <div id="adminAlert" class="alert">
+                <span id="adminAlertIcon">✓</span>
+                <span id="adminAlertMsg"></span>
+            </div>
+
+            <div id="passDisplay" class="password-display">
+                <div class="label">🔐 المفتاح الحالي</div>
+                <div class="value" id="passValue">----</div>
+            </div>
+
+            <button class="btn btn-secondary" id="showPassBtn" style="margin-bottom: 18px;">
+                <span>👁️</span>
+                <span>كشف المفتاح السري</span>
+            </button>
+
+            <div class="divider"></div>
+
+            <form id="changeForm">
+                <div class="form-group">
+                    <label>🔑 المفتاح الجديد</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="newPass" placeholder="أدخل المفتاح الجديد" required minlength="4">
+                        <span class="input-icon">🔑</span>
+                        <button type="button" class="toggle-pass" onclick="togglePassword('newPass', this)">👁️</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>✅ تأكيد المفتاح</label>
+                    <div class="input-wrapper">
+                        <input type="password" id="confirmPass" placeholder="أعد إدخال المفتاح" required>
+                        <span class="input-icon">✅</span>
+                        <button type="button" class="toggle-pass"
+                            onclick="togglePassword('confirmPass', this)">👁️</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary" id="changeBtn">
+                    <span>⚡</span>
+                    <span>تحديث المفتاح</span>
+                </button>
+            </form>
+
+            <div class="footer">
+                🔒 تطبيق الأذكار © 2024 | جميع الحقوق محفوظة 🔒
+            </div>
+        </div>
+    </div>
+
+    <!-- Supabase SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- ملفات JavaScript -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/app.js"></script>
+</body>
+
+</html>

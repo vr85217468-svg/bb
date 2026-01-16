@@ -1,0 +1,36 @@
+# ملف تكوين Netlify
+# يحدد كيفية بناء ونشر الموقع
+
+[build]
+  # مجلد النشر (publish directory)
+  publish = "."
+  
+  # لا توجد أوامر بناء لأن الموقع static
+  command = ""
+
+# إعدادات إضافية للأمان والأداء
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # تمكين CORS
+    Access-Control-Allow-Origin = "*"
+    
+    # أمان إضافي
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    
+    # Cache للملفات الثابتة
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    # لا نخزن HTML في cache
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Redirects
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

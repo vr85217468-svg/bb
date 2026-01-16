@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>رفع الملفات - File Upload</title>
+    <meta name="description" content="موقع رفع ومشاركة الملفات والتطبيقات بسهولة">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&family=Inter:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+    <!-- Background Effects -->
+    <div class="bg-gradient"></div>
+    <div class="bg-grid"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <h1>رفع<span class="highlight">لايف</span></h1>
+            </div>
+            <div class="header-info">
+                <span class="file-count">
+                    <i class="fas fa-file"></i>
+                    <span id="fileCount">0</span> ملف
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <div class="upload-card glass">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <h2>ارفع ملفاتك هنا</h2>
+                    <p class="upload-subtitle">اسحب الملفات وأفلتها أو اضغط للاختيار</p>
+
+                    <div class="drop-zone" id="dropZone">
+                        <div class="drop-zone-content">
+                            <i class="fas fa-file-upload"></i>
+                            <p class="drop-text">اسحب الملفات هنا</p>
+                            <p class="drop-text-small">أو</p>
+                            <button class="btn-primary" id="selectFileBtn">
+                                <i class="fas fa-folder-open"></i>
+                                اختر الملفات
+                            </button>
+                        </div>
+                        <input type="file" id="fileInput" multiple hidden>
+                    </div>
+
+                    <!-- Upload Progress -->
+                    <div class="upload-progress hidden" id="uploadProgress">
+                        <div class="progress-info">
+                            <span id="uploadFileName">filename.apk</span>
+                            <span id="uploadPercent">0%</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                    </div>
+
+                    <div class="upload-info">
+                        <div class="info-item">
+                            <i class="fas fa-check-circle"></i>
+                            <span>يدعم جميع أنواع الملفات</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-bolt"></i>
+                            <span>رفع سريع وآمن</span>
+                        </div>
+                        <div class="info-item">
+                            <i class="fas fa-share-alt"></i>
+                            <span>مشاركة سهلة</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Files List Section -->
+            <section class="files-section" id="filesSection">
+                <div class="section-header">
+                    <h2>
+                        <i class="fas fa-folder-open"></i>
+                        الملفات المرفوعة
+                    </h2>
+                    <button class="btn-secondary" id="clearAllBtn">
+                        <i class="fas fa-trash"></i>
+                        حذف الكل
+                    </button>
+                </div>
+
+                <div class="files-grid" id="filesGrid">
+                    <!-- Files will be inserted here dynamically -->
+                </div>
+
+                <div class="empty-state" id="emptyState">
+                    <i class="fas fa-folder-open"></i>
+                    <p>لا توجد ملفات مرفوعة بعد</p>
+                    <p class="empty-state-subtitle">ابدأ برفع ملفاتك الآن!</p>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>
+                <i class="fas fa-heart"></i>
+                صُنع بحب لمشاركة الملفات بسهولة
+            </p>
+            <div class="footer-links">
+                <a href="#"><i class="fab fa-github"></i></a>
+                <a href="#"><i class="fab fa-twitter"></i></a>
+                <a href="#"><i class="fab fa-telegram"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Toast Notification -->
+    <div class="toast hidden" id="toast">
+        <i class="fas fa-check-circle"></i>
+        <span id="toastMessage">تم بنجاح!</span>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>

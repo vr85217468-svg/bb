@@ -1,0 +1,27 @@
+# Ignore node modules
+node_modules/
+
+# Ignore uploaded files
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Ignore database file
+server/files-db.json
+
+# Ignore environment variables
+.env
+.env.local
+
+# Ignore logs
+*.log
+npm-debug.log*
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

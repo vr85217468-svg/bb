@@ -1,0 +1,73 @@
+name: test7
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # Supabase
+  supabase_flutter: ^2.8.0
+
+  # Media & audio
+  image_picker: ^1.2.1
+  record: ^6.1.2
+  path_provider: ^2.1.2
+  audioplayers: ^6.1.0
+
+  # Utils
+  uuid: ^4.2.2
+  intl: ^0.19.0
+  http: ^1.2.0
+  shared_preferences: ^2.2.3
+
+  # Background service
+  flutter_background_service: ^5.0.5
+  flutter_background_service_android: ^6.2.2
+
+  # Voice calls
+  agora_rtc_engine: ^6.3.0
+
+  # Sensors & permissions
+  flutter_compass: ^0.8.0
+  sensors_plus: ^4.0.2
+  geolocator: ^13.0.2
+  camera: ^0.11.0+2
+  permission_handler: ^11.3.1
+  cached_network_image: ^3.4.1
+
+  # Push notifications
+  pushy_flutter: ^2.0.10
+  
+  # URL launcher (للمكالمات الصوتية)
+  url_launcher: ^6.3.0
+  
+  # Notification badge
+  badges: ^3.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icon/
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  adaptive_icon_background: "#0D0D0D"
+  adaptive_icon_foreground: "assets/icon/app_icon.png"

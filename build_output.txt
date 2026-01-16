@@ -1,0 +1,162 @@
+﻿Running Gradle task 'assembleDebug'...                          
+flutter : Warning: 
+Flutter support for 
+your project's 
+Kotlin version 
+(2.0.21) will soon 
+be dropped. Please 
+upgrade your Kotlin 
+version to a version 
+of at least 2.1.0 
+soon.
+At line:1 char:1
++ flutter build apk 
+--debug 2>&1 | 
+Out-File -FilePath 
+build_output.txt  ...
++ ~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~
+    + CategoryInfo   
+           : NotSpe  
+  cified: (Warning   
+ : Flutte...ast 2    
+.1.0 soon.:Strin    
+g) [], RemoteExc    
+eption
+    + FullyQualified 
+   ErrorId : Native  
+  CommandError
+ 
+Alternatively, use 
+the flag "--android-s
+kip-build-dependency-
+validation" to 
+bypass this check.
+
+Potential fix: Your 
+project's KGP 
+version is typically 
+defined in the 
+plugins block of the 
+`settings.gradle` 
+file (C:\Users\user\M
+usic\jos\test7\androi
+d/settings.gradle), 
+by a plugin with the 
+id of org.jetbrains.k
+otlin.android. 
+If you don't see a 
+plugins block, your 
+project was likely 
+created with an 
+older template 
+version, in which 
+case it is most 
+likely defined in 
+the top-level 
+build.gradle file (C:
+\Users\user\Music\jos
+\test7\android/build.
+gradle) by the 
+ext.kotlin_version 
+property.
+
+
+FAILURE: Build 
+failed with an 
+exception.
+
+* What went wrong:
+Execution failed for 
+task ':app:checkDebug
+AarMetadata'.
+> A failure occurred 
+while executing com.a
+ndroid.build.gradle.i
+nternal.tasks.CheckAa
+rMetadataWorkAction
+   > 5 issues were 
+found when checking 
+AAR metadata:
+
+       1.  
+Dependency 'androidx.
+browser:browser:1.9.0
+' requires Android 
+Gradle plugin 8.9.1 
+or higher.
+
+           This 
+build currently uses 
+Android Gradle 
+plugin 8.7.3.
+
+       2.  
+Dependency 'androidx.
+activity:activity-ktx
+:1.11.0' requires 
+Android Gradle 
+plugin 8.9.1 or 
+higher.
+
+           This 
+build currently uses 
+Android Gradle 
+plugin 8.7.3.
+
+       3.  
+Dependency 'androidx.
+activity:activity:1.1
+1.0' requires 
+Android Gradle 
+plugin 8.9.1 or 
+higher.
+
+           This 
+build currently uses 
+Android Gradle 
+plugin 8.7.3.
+
+       4.  
+Dependency 'androidx.
+core:core-ktx:1.17.0'
+ requires Android 
+Gradle plugin 8.9.1 
+or higher.
+
+           This 
+build currently uses 
+Android Gradle 
+plugin 8.7.3.
+
+       5.  
+Dependency 'androidx.
+core:core:1.17.0' 
+requires Android 
+Gradle plugin 8.9.1 
+or higher.
+
+           This 
+build currently uses 
+Android Gradle 
+plugin 8.7.3.
+
+* Try:
+> Run with 
+--stacktrace option 
+to get the stack 
+trace.
+> Run with --info or 
+--debug option to 
+get more log output.
+> Run with --scan to 
+get full insights.
+> Get more help at ht
+tps://help.gradle.org
+.
+
+BUILD FAILED in 16s
+Running Gradle task 'assembleDebug'...                             16.8s
+Gradle task 
+assembleDebug failed 
+with exit code 1

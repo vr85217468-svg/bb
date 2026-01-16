@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تحميل التطبيق - Download App</title>
+    <meta name="description" content="حمّل التطبيق مجاناً - Download our app for free">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .app-icon {
+            width: 120px;
+            height: 120px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .app-icon i {
+            font-size: 60px;
+            color: white;
+        }
+
+        h1 {
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .version {
+            color: #888;
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+
+        .description {
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .download-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 18px 50px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            transition: transform 0.3s, box-shadow 0.3s;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .download-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 40px rgba(102, 126, 234, 0.6);
+        }
+
+        .download-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .download-btn i {
+            font-size: 1.3rem;
+        }
+
+        .info {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 1px solid #eee;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            color: #666;
+        }
+
+        .info-item i {
+            color: #667eea;
+        }
+
+        @media (max-width: 600px) {
+            .card {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .stats {
+                gap: 20px;
+            }
+        }
+
+        .pulse {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.05);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <div class="app-icon pulse">
+                <i class="fab fa-android"></i>
+            </div>
+
+            <h1>اسم التطبيق</h1>
+            <p class="version">الإصدار 1.0.0</p>
+
+            <p class="description">
+                حمّل التطبيق الآن واستمتع بجميع المميزات.
+                التطبيق مجاني بالكامل ويعمل على جميع أجهزة الأندرويد.
+            </p>
+
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value">مجاني</div>
+                    <div class="stat-label">السعر</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">آمن</div>
+                    <div class="stat-label">الأمان</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value">جديد</div>
+                    <div class="stat-label">الحالة</div>
+                </div>
+            </div>
+
+            <a href="app.apk" download class="download-btn">
+                <i class="fas fa-download"></i>
+                تحميل التطبيق
+            </a>
+
+            <div class="info">
+                <div class="info-item">
+                    <i class="fas fa-mobile-alt"></i>
+                    <span>يعمل على Android 5.0 فأحدث</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-hdd"></i>
+                    <span id="fileSize">حجم الملف: جاري الحساب...</span>
+                </div>
+                <div class="info-item">
+                    <i class="fas fa-shield-alt"></i>
+                    <span>آمن ومضمون 100%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get file size
+        fetch('app.apk', { method: 'HEAD' })
+            .then(response => {
+                const size = response.headers.get('content-length');
+                if (size) {
+                    const mb = (size / 1024 / 1024).toFixed(2);
+                    document.getElementById('fileSize').textContent = `حجم الملف: ${mb} ميجابايت`;
+                }
+            })
+            .catch(() => {
+                document.getElementById('fileSize').textContent = 'حجم الملف: غير متوفر';
+            });
+    </script>
+</body>
+
+</html>
