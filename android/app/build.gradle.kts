@@ -37,7 +37,7 @@ android {
     // ✅ تقسيم APK حسب معمارية المعالج لتقليل الحجم
     splits {
         abi {
-            enable = true
+            isEnable = true
             reset()
             // تضمين المعماريات الأكثر استخداماً فقط
             include("arm64-v8a", "armeabi-v7a")
@@ -74,7 +74,7 @@ android {
         }
     }
 
-    packagingOptions {
+    packaging {
         resources {
             excludes += setOf(
                 "/META-INF/AL2.0",
