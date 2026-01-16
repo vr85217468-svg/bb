@@ -98,7 +98,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - vr85217468@gmail.com   # غيّر هذا
+          - vr85217468@gmail.com
         notify:
           success: true
           failure: true
