@@ -29,18 +29,6 @@ android {
         multiDexEnabled = true
     }
 
-    // ✅ تقسيم APK حسب معمارية المعالج لتقليل الحجم
-    splits {
-        abi {
-            isEnable = true
-            reset()
-            // تضمين المعماريات الأكثر استخداماً فقط
-            include("arm64-v8a", "armeabi-v7a")
-            // عدم إنشاء APK شامل (universal)
-            isUniversalApk = false
-        }
-    }
-
     buildTypes {
         release {
             // نستخدم debug signing مؤقتًا لتفادي مشاكل keystore
