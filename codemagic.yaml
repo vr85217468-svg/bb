@@ -11,10 +11,6 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      groups:
-        - ios_credentials  # أضف هذا من Dashboard
-      vars:
-        BUNDLE_ID: "com.yourcompany.test7"  # غيّر هذا
     
     scripts:
       # تنظيف المشروع
@@ -40,21 +36,28 @@ workflows:
       # تحويل .app إلى .ipa
       - name: Create unsigned IPA
         script: |
-          cd build/ios/iphoneos
-          mkdir -p Payload
-          cp -r Runner.app Payload/
-          zip -r Runner-unsigned.ipa Payload
-          mv Runner-unsigned.ipa ../../../
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          if [ -d "$APP_PATH" ]; then
+            echo "Found Runner.app, creating IPA..."
+            mkdir -p Payload
+            cp -r "$APP_PATH" Payload/
+            zip -r Runner-unsigned.ipa Payload
+            rm -rf Payload
+            echo "IPA created successfully!"
+            ls -la Runner-unsigned.ipa
+          else
+            echo "ERROR: Runner.app not found!"
+            exit 1
+          fi
     
     artifacts:
       - Runner-unsigned.ipa
-      - build/ios/iphoneos/*.app
-      - /tmp/xcodebuild_logs/*.log
+      - build/ios/iphoneos/Runner.app
     
     publishing:
       email:
         recipients:
-          - your-email@example.com  # غيّر هذا
+          - vr85217468@gmail.com
         notify:
           success: true
           failure: true
@@ -95,7 +98,7 @@ workflows:
     publishing:
       email:
         recipients:
-          - your-email@example.com  # غيّر هذا
+          - vr85217468@gmail.com   # غيّر هذا
         notify:
           success: true
           failure: true
