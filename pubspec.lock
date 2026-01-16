@@ -908,10 +908,10 @@ packages:
     dependency: "direct main"
     description:
       name: pushy_flutter
-      sha256: "325df81e2f76d6396e6074f35b70ac4f81b587b571ce2084f6e20385ec11751c"
+      sha256: f8dd2d13ea0397b52a89966a02095020ab79d0bb62c4f01d8356d9747691963d
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.41"
+    version: "2.0.43"
   realtime_client:
     dependency: transitive
     description:
