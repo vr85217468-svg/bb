@@ -27,11 +27,6 @@ android {
         versionName = flutter.versionName
 
         multiDexEnabled = true
-        
-        // ✅ استبعاد معماريات x86/x86_64 (فقط للمحاكيات - توفير ~90MB)
-        ndk {
-            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a"))
-        }
     }
 
     // ✅ تقسيم APK حسب معمارية المعالج لتقليل الحجم
