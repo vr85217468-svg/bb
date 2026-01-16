@@ -32,15 +32,24 @@ workflows:
         script: |
           cd ios && pod install
           
-      # بناء iOS
-      - name: Build iOS IPA
+      # بناء iOS App
+      - name: Build iOS App
         script: |
-          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist
+          flutter build ios --release --no-codesign
+          
+      # تحويل .app إلى .ipa
+      - name: Create unsigned IPA
+        script: |
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r Runner-unsigned.ipa Payload
+          mv Runner-unsigned.ipa ../../../
     
     artifacts:
-      - build/ios/ipa/*.ipa
+      - Runner-unsigned.ipa
+      - build/ios/iphoneos/*.app
       - /tmp/xcodebuild_logs/*.log
-      - flutter_drive.log
     
     publishing:
       email:
